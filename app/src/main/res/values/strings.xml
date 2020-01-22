@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Transaction Checker</string>
+    <string name="app_name">DL Transaction Checker</string>
     <string name="settings_text"><u>Settings</u></string>
     <string-array name="order_mode">
         <item>Ascending</item>
