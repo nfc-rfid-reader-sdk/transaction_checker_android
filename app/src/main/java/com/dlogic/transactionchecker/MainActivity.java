@@ -168,7 +168,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         limitET = findViewById(R.id.limitID);
-        
+
 
         DATE_TO = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date());
         DATE_FROM = DATE_TO.substring(0, DATE_TO.indexOf(" ")) + " 00:00:00";
