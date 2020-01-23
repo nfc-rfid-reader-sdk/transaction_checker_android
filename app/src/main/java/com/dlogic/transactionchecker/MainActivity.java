@@ -76,7 +76,10 @@ public class MainActivity extends AppCompatActivity {
     EditText limitET;
     TableRow tableRow;
 
+    StringRequest stringRequest;
+    RequestQueue requestQueue;
     String serverUrl = "";
+    TableLayout tableBalance;
 
     @Override
     protected void onPause() {
@@ -86,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onResume() {
+        CreateRequest();
         UFC.callOnResume(this);
         super.onResume();
     }
@@ -99,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
         uFCoder = new uFCoder(getApplicationContext());
 
         tableRow = findViewById(R.id.tableRowID);
+        tableBalance = findViewById(R.id.tableBalanceID);
 
         final View dialogView = View.inflate(MainActivity.this, R.layout.date_time_picker, null);
         final AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
@@ -109,6 +114,10 @@ public class MainActivity extends AppCompatActivity {
 
         ImageView dateFromET = findViewById(R.id.dateFromID);
         ImageView dateToET = findViewById(R.id.dateToID);
+
+        requestQueue = Volley.newRequestQueue(getApplicationContext());
+
+        CreateRequest();
 
         dateFromET.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -169,7 +178,9 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
 
                 ClearTable(R.id.transactionTableID);
+                ClearTable(R.id.tableBalanceAmountID);
                 tableRow.setVisibility(View.GONE);
+                tableBalance.setVisibility(View.GONE);
 
                 NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(getApplicationContext());
 
@@ -365,10 +376,63 @@ public class MainActivity extends AppCompatActivity {
 
     public void getData()
     {
-       SharedPreferences prefs = getSharedPreferences("MyPrefsFile", MODE_PRIVATE);
-       serverUrl = prefs.getString("HostString", "");
+        stringRequest.setRetryPolicy(new DefaultRetryPolicy(
+                30000,
+                DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+                DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
 
-       StringRequest stringRequest = new StringRequest(Request.Method.POST, serverUrl, new Response.Listener<String>() {
+        requestQueue.add(stringRequest);
+    }
+
+    public void onStop () {
+        LOOP = false;
+        stringRequest.cancel();
+        super.onStop();
+    }
+
+    public void AddRow(int tableID, String amount, String date)
+    {
+            TableRow.LayoutParams params = new TableRow.LayoutParams(TableRow.LayoutParams.WRAP_CONTENT, TableRow.LayoutParams.WRAP_CONTENT, 1f);
+
+            TableLayout table = findViewById(tableID);
+
+            TableRow row = new TableRow(MainActivity.this);
+
+            TextView tv = new TextView(MainActivity.this);
+            tv.setLayoutParams(params);
+            tv.setBackgroundResource(R.drawable.table_divider);
+            tv.setTextColor(Color.BLACK);
+            tv.setTextSize(20);
+            tv.setText(amount);
+
+            row.addView(tv);
+
+            TextView tv1 = new TextView(MainActivity.this);
+            tv1.setLayoutParams(params);
+            tv1.setBackgroundResource(R.drawable.table_divider);
+            tv1.setTextColor(Color.BLACK);
+            tv1.setTextSize(20);
+            tv1.setText(date);
+
+            row.addView(tv1);
+
+            table.addView(row);
+    }
+
+    public void ClearTable(int tableID)
+    {
+         TableLayout table = findViewById(tableID);
+         table.removeAllViews();
+    }
+
+    public void CreateRequest()
+    {
+        SharedPreferences prefs = getSharedPreferences("MyPrefsFile", MODE_PRIVATE);
+        serverUrl = prefs.getString("HostString", "");
+
+        HttpsTrustManager.allowAllSSL();
+
+        stringRequest = new StringRequest(Request.Method.POST, serverUrl, new Response.Listener<String>() {
             @Override
             public void onResponse(String response) {
                 dialog.dismiss();
@@ -380,6 +444,7 @@ public class MainActivity extends AppCompatActivity {
                     if(statusResp[0].trim().equals("0"))
                     {
                         tableRow.setVisibility(View.VISIBLE);
+                        tableBalance.setVisibility(View.VISIBLE);
 
                         String[] transactions = statusResp[1].split(Pattern.quote("||"));
 
@@ -390,7 +455,14 @@ public class MainActivity extends AppCompatActivity {
                             String amountStr = transactions[i].substring(0, transactions[i].indexOf('|'));
                             String dateStr = transactions[i].substring(transactions[i].indexOf('|') + 1);
 
-                            AddRow(amountStr, dateStr);
+                            if(i == 0)
+                            {
+                                AddRow(R.id.tableBalanceAmountID, amountStr, dateStr);
+                            }
+                            else
+                            {
+                                AddRow(R.id.transactionTableID, amountStr, dateStr);
+                            }
                         }
                     }
                     else
@@ -458,52 +530,5 @@ public class MainActivity extends AppCompatActivity {
                 return params;
             }
         };
-
-        stringRequest.setRetryPolicy(new DefaultRetryPolicy(
-                30000,
-                DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
-                DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
-
-        Volley.newRequestQueue(getApplicationContext()).add(stringRequest);
     }
-
-    public void onStop () {
-        LOOP = false;
-        super.onStop();
-    }
-
-    public void AddRow(String amount, String date)
-    {
-            TableRow.LayoutParams params = new TableRow.LayoutParams(TableRow.LayoutParams.WRAP_CONTENT, TableRow.LayoutParams.WRAP_CONTENT, 1f);
-
-            TableLayout table = findViewById(R.id.transactionTableID);
-
-            TableRow row = new TableRow(MainActivity.this);
-
-            TextView tv = new TextView(MainActivity.this);
-            tv.setLayoutParams(params);
-            tv.setBackgroundResource(R.drawable.table_divider);
-            tv.setTextColor(Color.BLACK);
-            tv.setTextSize(20);
-            tv.setText(amount);
-
-            row.addView(tv);
-
-            TextView tv1 = new TextView(MainActivity.this);
-            tv1.setLayoutParams(params);
-            tv1.setBackgroundResource(R.drawable.table_divider);
-            tv1.setTextColor(Color.BLACK);
-            tv1.setTextSize(20);
-            tv1.setText(date);
-
-            row.addView(tv1);
-
-            table.addView(row);
-    }
-
-        public void ClearTable(int tableID)
-        {
-            TableLayout table = findViewById(tableID);
-            table.removeAllViews();
-        }
 }
