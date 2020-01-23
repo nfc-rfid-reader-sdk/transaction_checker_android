@@ -118,6 +118,9 @@ public class MainActivity extends AppCompatActivity {
 
         HttpsTrustManager.allowAllSSL();
 
+        SharedPreferences prefs = getSharedPreferences("MyPrefsFile", MODE_PRIVATE);
+        serverUrl = prefs.getString("HostString", "");
+
         stringRequest = new StringRequest(Request.Method.POST, serverUrl, new Response.Listener<String>() {
             @Override
             public void onResponse(String response) {
@@ -290,6 +293,8 @@ public class MainActivity extends AppCompatActivity {
 
                 SharedPreferences prefs = getSharedPreferences("MyPrefsFile", MODE_PRIVATE);
                 serverUrl = prefs.getString("HostString", "");
+
+                Log.e("URL", serverUrl);
 
                 if(serverUrl.equals(""))
                 {
