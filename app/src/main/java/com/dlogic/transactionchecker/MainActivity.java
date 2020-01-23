@@ -76,10 +76,6 @@ public class MainActivity extends AppCompatActivity {
     EditText limitET;
     TableRow tableRow;
 
-    String hostStr = "";
-    RequestQueue requestQueue;
-    StringRequest stringRequest;
-
     String serverUrl = "";
 
     @Override
@@ -113,100 +109,6 @@ public class MainActivity extends AppCompatActivity {
 
         ImageView dateFromET = findViewById(R.id.dateFromID);
         ImageView dateToET = findViewById(R.id.dateToID);
-
-        requestQueue = Volley.newRequestQueue(getApplicationContext());
-
-        HttpsTrustManager.allowAllSSL();
-
-        SharedPreferences prefs = getSharedPreferences("MyPrefsFile", MODE_PRIVATE);
-        serverUrl = prefs.getString("HostString", "");
-
-        stringRequest = new StringRequest(Request.Method.POST, serverUrl, new Response.Listener<String>() {
-            @Override
-            public void onResponse(String response) {
-                dialog.dismiss();
-
-                tableRow.setVisibility(View.VISIBLE);
-
-                String[] statusResp = response.split(";");
-
-                if(statusResp.length == 2)
-                {
-                    if(statusResp[0].trim().equals("0"))
-                    {
-                        String[] transactions = statusResp[1].split(Pattern.quote("||"));
-
-                        for(int i = 0; i < transactions.length; i++)
-                        {
-                            transactions[i] = transactions[i].trim();
-
-                            String amountStr = transactions[i].substring(0, transactions[i].indexOf('|'));
-                            String dateStr = transactions[i].substring(transactions[i].indexOf('|') + 1);
-
-                            AddRow(amountStr, dateStr);
-                        }
-                    }
-                }
-                else
-                {
-                    Toast.makeText(getApplicationContext(), response, Toast.LENGTH_SHORT).show();
-                }
-            }
-        }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-
-                if(serverUrl.equals(""))
-                {
-                    Toast.makeText(getApplicationContext(), "Host is not defined", Toast.LENGTH_SHORT).show();
-                }
-                else
-                {
-                    Toast.makeText(getApplicationContext(), "Failed to get data", Toast.LENGTH_SHORT).show();
-                }
-
-                try {
-                    Log.e("SendingError", error.getMessage());
-                }
-                catch (Exception e)
-                {
-                    e.printStackTrace();
-                }
-
-                dialog.dismiss();
-            }
-        })
-
-        {
-            @Override
-            protected Map<String, String> getParams() {
-                Map<String, String> params = new HashMap<>();
-
-                SharedPreferences prefs = getSharedPreferences("MyPrefsFile", MODE_PRIVATE);
-                String apiKeyStr = prefs.getString("ApiKeyString", "");
-
-                //9B4761E0BFA9A2F8E536B26F6FC7E409A9A4942F23A3FD45C33AE52B8B6CE366
-
-                params.put("api_key", apiKeyStr);
-                params.put("certificate", CERTIFICATE_STR);
-                params.put("public_key", PUBLIC_KEY_STR);
-                params.put("date_from", DATE_FROM);
-                params.put("date_to", DATE_TO);
-
-                if(ORDER == 0)
-                {
-                    params.put("order", "ascending");
-                }
-                else
-                {
-                    params.put("order", "descending");
-                }
-
-                params.put("limit", limitET.getText().toString());
-
-                return params;
-            }
-        };
 
         dateFromET.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -463,12 +365,106 @@ public class MainActivity extends AppCompatActivity {
 
     public void getData()
     {
+       SharedPreferences prefs = getSharedPreferences("MyPrefsFile", MODE_PRIVATE);
+       serverUrl = prefs.getString("HostString", "");
+
+       StringRequest stringRequest = new StringRequest(Request.Method.POST, serverUrl, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+                dialog.dismiss();
+
+                String[] statusResp = response.split(";");
+
+                if(statusResp.length == 2)
+                {
+                    if(statusResp[0].trim().equals("0"))
+                    {
+                        tableRow.setVisibility(View.VISIBLE);
+
+                        String[] transactions = statusResp[1].split(Pattern.quote("||"));
+
+                        for(int i = 0; i < transactions.length; i++)
+                        {
+                            transactions[i] = transactions[i].trim();
+
+                            String amountStr = transactions[i].substring(0, transactions[i].indexOf('|'));
+                            String dateStr = transactions[i].substring(transactions[i].indexOf('|') + 1);
+
+                            AddRow(amountStr, dateStr);
+                        }
+                    }
+                    else
+                    {
+                        Toast.makeText(getApplicationContext(), statusResp[1], Toast.LENGTH_SHORT).show();
+                    }
+                }
+                else
+                {
+                    Toast.makeText(getApplicationContext(), response, Toast.LENGTH_SHORT).show();
+                }
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+
+                if(serverUrl.equals(""))
+                {
+                    Toast.makeText(getApplicationContext(), "Host is not defined", Toast.LENGTH_SHORT).show();
+                }
+                else
+                {
+                    Toast.makeText(getApplicationContext(), "Failed to get data", Toast.LENGTH_SHORT).show();
+                }
+
+                try {
+                    Log.e("SendingError", error.getMessage());
+                }
+                catch (Exception e)
+                {
+                    e.printStackTrace();
+                }
+
+                dialog.dismiss();
+            }
+        })
+
+        {
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String, String> params = new HashMap<>();
+
+                SharedPreferences prefs = getSharedPreferences("MyPrefsFile", MODE_PRIVATE);
+                String apiKeyStr = prefs.getString("ApiKeyString", "");
+
+                //9B4761E0BFA9A2F8E536B26F6FC7E409A9A4942F23A3FD45C33AE52B8B6CE366
+
+                params.put("api_key", apiKeyStr);
+                params.put("certificate", CERTIFICATE_STR);
+                params.put("public_key", PUBLIC_KEY_STR);
+                params.put("date_from", DATE_FROM);
+                params.put("date_to", DATE_TO);
+
+                if(ORDER == 0)
+                {
+                    params.put("order", "ascending");
+                }
+                else
+                {
+                    params.put("order", "descending");
+                }
+
+                params.put("limit", limitET.getText().toString());
+
+                return params;
+            }
+        };
+
         stringRequest.setRetryPolicy(new DefaultRetryPolicy(
                 30000,
                 DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
                 DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
 
-        requestQueue.add(stringRequest);
+        Volley.newRequestQueue(getApplicationContext()).add(stringRequest);
     }
 
     public void onStop () {
