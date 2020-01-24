@@ -25,6 +25,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
+import android.widget.TabHost;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
@@ -44,6 +45,9 @@ import com.dlogic.uFCoderHelper;
 import org.w3c.dom.Text;
 
 import java.lang.reflect.Array;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -61,6 +65,8 @@ public class MainActivity extends AppCompatActivity {
     uFCoderHelper UFC;
     uFCoder uFCoder;
 
+    public boolean GETTINGKEY = false;
+    public boolean CHAINBLOCK = false;
     public boolean LOOP = false;
     private final int STATUS_IS_OK = 0;
     ProgressDialog dialog;
@@ -77,9 +83,22 @@ public class MainActivity extends AppCompatActivity {
     TableRow tableRow;
 
     StringRequest stringRequest;
+    StringRequest stringRequestPayment;
     RequestQueue requestQueue;
+    RequestQueue requestQueuePayment;
     String serverUrl = "";
+    String serverUrlPayment = "";
     TableLayout tableBalance;
+
+    public static String PUBLIC_KEY = "";
+    public static String PIN = "";
+    public static String AMOUUNT = "";
+    public static String SENDER_CERTIFICATE = "";
+    public static String TRANSACTION_BLOCK = "";
+
+    EditText pubKey;
+    EditText pinET;
+    EditText amountET;
 
     @Override
     protected void onPause() {
@@ -102,6 +121,14 @@ public class MainActivity extends AppCompatActivity {
         UFC = uFCoderHelper.getInstance(this);
         uFCoder = new uFCoder(getApplicationContext());
 
+        final TabHost mTabHost = findViewById(R.id.tabhost);
+        mTabHost.setup();
+        mTabHost.addTab(mTabHost.newTabSpec("tab0").setIndicator("TRANSACTIONS", null).setContent(R.id.tab1));
+        mTabHost.addTab(mTabHost.newTabSpec("tab1").setIndicator("PAYMENTS", null).setContent(R.id.tab2));
+
+        TextView tv = (TextView) mTabHost.getTabWidget().getChildAt(0).findViewById(android.R.id.title);
+        tv.setTextColor(Color.WHITE);
+
         tableRow = findViewById(R.id.tableRowID);
         tableBalance = findViewById(R.id.tableBalanceID);
 
@@ -116,6 +143,7 @@ public class MainActivity extends AppCompatActivity {
         ImageView dateToET = findViewById(R.id.dateToID);
 
         requestQueue = Volley.newRequestQueue(getApplicationContext());
+        requestQueuePayment = Volley.newRequestQueue(getApplicationContext());
 
         CreateRequest();
 
@@ -231,24 +259,115 @@ public class MainActivity extends AppCompatActivity {
 
                     new Thread() {
                         public void run() {
-                            int status = GetCertificate();
 
-                            if(status == 0)
+                            if(CHAINBLOCK == false)
                             {
-                                if(!CERTIFICATE_STR.equals("") && !PUBLIC_KEY_STR.equals(""))
+                                int status = GetCertificate();
+
+                                if(status == 0)
                                 {
-                                    getData();
+                                    if(!CERTIFICATE_STR.equals("") && !PUBLIC_KEY_STR.equals(""))
+                                    {
+                                        getData();
+                                    }
+                                    else
+                                    {
+                                        ShowStatus("Cannot get certificate, card was lost, please try again");
+                                    }
                                 }
                                 else
                                 {
-                                    dialog.dismiss();
-                                    ShowStatus("Cannot get certificate, card was lost, please try again");
+                                    ShowStatus("Cannot get certificate, status is " + uFCoder.UFR_Status2String(status));
                                 }
+                            }
+                            else if(GETTINGKEY == true)
+                            {
+                                int[] status = new int[1];
+
+                                byte[] pub_key = uFCoder.GetECPublicKeyFromCard(status);
+
+                                if(status[0] == 0)
+                                {
+                                    ShowStatus("Key successfully read");
+                                    DisplayKey(bytesToHex(pub_key));
+                                }
+                                else
+                                {
+                                    ShowStatus("Cannot read key, status is, " + uFCoder.UFR_Status2String(status[0]));
+                                    DisplayKey("");
+                                }
+
+                                GETTINGKEY = false;
                             }
                             else
                             {
-                                dialog.dismiss();
-                                ShowStatus("Cannot get certificate, status is " + uFCoder.UFR_Status2String(status));
+                                int[] status = new int[1];
+                                byte[] pin = pinET.getText().toString().trim().getBytes();
+
+                                byte[] pub_key = uFCoder.GetECPublicKeyFromCard(status);
+
+                                if(status[0] == 0)
+                                {
+                                    if(pub_key != null)
+                                    {
+                                        long amount = Long.parseLong(amountET.getText().toString().trim());
+
+                                        byte[] swapped = longToBytes(amount);
+                                        reverse(swapped);
+
+                                        String tbsStr = "0100" + PUBLIC_KEY + bytesToHex(pub_key) + bytesToHex(swapped);
+
+                                        byte[] signature = uFCoder.GetDigitalSignature(status, SHA256(hexStringToByteArray(tbsStr)), pin, (byte)8);
+
+                                        if(status[0] == 0)
+                                        {
+                                            if(signature != null)
+                                            {
+                                                tbsStr += bytesToHex(SHA256(hexStringToByteArray(tbsStr))) + bytesToHex(signature);
+
+                                                TRANSACTION_BLOCK = tbsStr;
+
+                                                byte[] cert = uFCoder.GetCertificateFromCard(status, (byte)1, (byte)0);
+
+                                                if(status[0] == 0)
+                                                {
+                                                    if(cert != null)
+                                                    {
+                                                        SENDER_CERTIFICATE = bytesToHex(cert);
+
+                                                        ChainBlock();
+                                                    }
+                                                    else
+                                                    {
+                                                        ShowStatus("Cannot get certificate, card was lost");
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    ShowStatus("Cannot get certificate, status is " + uFCoder.UFR_Status2String(status[0]));
+                                                }
+
+
+                                            }
+                                            else
+                                            {
+                                                ShowStatus("Cannot sign, card was lost");
+                                            }
+                                        }
+                                        else
+                                        {
+                                            ShowStatus("Cannot sign, status is " + uFCoder.UFR_Status2String(status[0]));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        ShowStatus("Cannot get public key, card was lost");
+                                    }
+                                }
+                                else
+                                {
+                                    ShowStatus("Cannot get public key, status is " + uFCoder.UFR_Status2String(status[0]));
+                                }
                             }
                         }
                     }.start();
@@ -305,7 +424,104 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        ImageView settingsIconPayments = findViewById(R.id.iconSettingsPaymentsId);
+        settingsIconPayments.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(getApplicationContext(), PaymentSettingsActivity.class);
+                startActivity(intent);
+            }
+        });
+
+        TextView settingsPaymentsText = findViewById(R.id.txtSettingsPaymentsId);
+        settingsPaymentsText.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(getApplicationContext(), PaymentSettingsActivity.class);
+                startActivity(intent);
+            }
+        });
+
         System.setProperty("http.keepAlive", "true");
+
+        mTabHost.setOnTabChangedListener(new TabHost.OnTabChangeListener(){
+            @Override
+            public void onTabChanged(String tabId) {
+
+                if("tab0".equals(tabId)) {
+                    stringRequestPayment.cancel();
+                    CreateRequest();
+                    CHAINBLOCK = false;
+                }
+                if("tab1".equals(tabId)) {
+                    stringRequest.cancel();
+                    CreateRequestPayment();
+                    CHAINBLOCK = true;
+                }
+
+                int tab = mTabHost.getCurrentTab();
+                for (int i = 0; i < mTabHost.getTabWidget().getChildCount(); i++) {
+
+                    TextView tv = (TextView) mTabHost.getTabWidget().getChildAt(i).findViewById(android.R.id.title);
+                    tv.setTextColor(Color.BLACK);
+                }
+
+                TextView tv = (TextView) mTabHost.getTabWidget().getChildAt(tab).findViewById(android.R.id.title);
+                tv.setTextColor(Color.WHITE);
+            }
+        });
+
+        Button btnSendPayment = findViewById(R.id.btnSendToReceiverID);
+        btnSendPayment.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                int status = uFCoder.ReaderOpenEx(5, "", 0, "");
+
+                if(status != 0)
+                {
+                    Toast.makeText(getApplicationContext(), "Please enable NFC", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                pubKey = findViewById(R.id.receiverPubKeyID);
+                pinET = findViewById(R.id.pinETID);
+                amountET = findViewById(R.id.amountETID);
+
+                PUBLIC_KEY = pubKey.getText().toString().trim();
+                PIN = pinET.getText().toString().trim();
+                AMOUUNT = amountET.getText().toString().trim();
+
+                LOOP = true;
+
+                dialog = ProgressDialog.show(MainActivity.this, "",
+                        "Tap DL Signer card on the phone...", true);
+            }
+        });
+
+        Button btnGetPublicKey = findViewById(R.id.btnGetPublicKeyID);
+        btnGetPublicKey.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+                EditText PUBKEYET = findViewById(R.id.getPublicKeyETID);
+                PUBKEYET.setText("");
+
+                int status = uFCoder.ReaderOpenEx(5, "", 0, "");
+
+                if(status != 0)
+                {
+                    Toast.makeText(getApplicationContext(), "Please enable NFC", Toast.LENGTH_SHORT).show();
+                    GETTINGKEY = false;
+                    return;
+                }
+
+                GETTINGKEY = true;
+                LOOP = true;
+
+                dialog = ProgressDialog.show(MainActivity.this, "",
+                        "Tap DL Signer card on the phone...", true);
+            }
+        });
     }
 
     public int GetCertificate()
@@ -370,7 +586,21 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void run() {
+                dialog.dismiss();
                 Toast.makeText(getApplicationContext(), status, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    public void DisplayKey(final String keyStr)
+    {
+        runOnUiThread(new Runnable() {
+
+            @Override
+            public void run() {
+                dialog.dismiss();
+                EditText getPubKeyEt = findViewById(R.id.getPublicKeyETID);
+                getPubKeyEt.setText(keyStr);
             }
         });
     }
@@ -383,6 +613,16 @@ public class MainActivity extends AppCompatActivity {
                 DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
 
         requestQueue.add(stringRequest);
+    }
+
+    public void ChainBlock()
+    {
+        stringRequestPayment.setRetryPolicy(new DefaultRetryPolicy(
+                30000,
+                DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+                DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+
+        requestQueuePayment.add(stringRequestPayment);
     }
 
     public void onStop () {
@@ -437,6 +677,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onResponse(String response) {
                 dialog.dismiss();
+
+                Log.e("TRANSACTIONREQUEST", response);
 
                 String[] statusResp = response.split(";");
 
@@ -531,5 +773,120 @@ public class MainActivity extends AppCompatActivity {
                 return params;
             }
         };
+    }
+
+    public void CreateRequestPayment()
+    {
+        SharedPreferences prefs = getSharedPreferences("Payments", MODE_PRIVATE);
+        serverUrlPayment = prefs.getString("HostStringPayments", "");
+
+        com.dlogic.transactionchecker.HttpsTrustManager.allowAllSSL();
+
+        stringRequestPayment = new StringRequest(Request.Method.POST, serverUrlPayment, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+
+                Log.e("PAYMENTREQUEST", response);
+
+                Toast.makeText(getApplicationContext(), response, Toast.LENGTH_SHORT).show();
+
+                dialog.dismiss();
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+
+                Toast.makeText(getApplicationContext(), "Payment failed", Toast.LENGTH_SHORT).show();
+
+                try {
+                    Log.e("SendingError", error.getMessage());
+                }
+                catch (Exception e)
+                {
+                    e.printStackTrace();
+                }
+
+                dialog.dismiss();
+            }
+        })
+
+        {
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String, String> params = new HashMap<>();
+
+                SharedPreferences prefs = getSharedPreferences("Payments", MODE_PRIVATE);
+                String apiKeyStr = prefs.getString("ApiKeyStringPayments", "");
+
+                params.put("api_key", apiKeyStr);
+                params.put("certificate_receiver", "");
+                params.put("certificate_sender", SENDER_CERTIFICATE);
+                params.put("transaction_block", TRANSACTION_BLOCK);
+
+                return params;
+            }
+        };
+    }
+
+    public static void reverse(byte[] array) {
+        if (array == null) {
+            return;
+        }
+        int i = 0;
+        int j = array.length - 1;
+        byte tmp;
+        while (j > i) {
+            tmp = array[j];
+            array[j] = array[i];
+            array[i] = tmp;
+            j--;
+            i++;
+        }
+    }
+
+    public byte[] longToBytes(long x) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.putLong(x);
+        return buffer.array();
+    }
+
+    public byte[] SHA256 (byte[] binary_data) {
+        try
+        {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+
+            md.update(binary_data);
+            byte[] digest = md.digest();
+
+            return digest;
+        }
+        catch (NoSuchAlgorithmException ex)
+        {
+            return null;
+        }
+    }
+
+    public static byte[] hexStringToByteArray(String paramString) throws IllegalArgumentException {
+        int j = paramString.length();
+
+        if (j % 2 == 1) {
+            throw new IllegalArgumentException("Hex string must have even number of characters");
+        }
+
+        byte[] arrayOfByte = new byte[j / 2];
+        int hiNibble, loNibble;
+
+        for (int i = 0; i < j; i += 2) {
+            hiNibble = Character.digit(paramString.charAt(i), 16);
+            loNibble = Character.digit(paramString.charAt(i + 1), 16);
+            if (hiNibble < 0) {
+                throw new IllegalArgumentException("Illegal hex digit at position " + i);
+            }
+            if (loNibble < 0) {
+                throw new IllegalArgumentException("Illegal hex digit at position " + (i + 1));
+            }
+            arrayOfByte[(i / 2)] = ((byte) ((hiNibble << 4) + loNibble));
+        }
+        return arrayOfByte;
     }
 }

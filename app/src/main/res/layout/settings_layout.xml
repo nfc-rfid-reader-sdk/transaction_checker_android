@@ -12,7 +12,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Settings"
+            android:text="Transaction Settings"
             android:gravity="center"
             android:layout_gravity="center"
             android:layout_marginLeft="10dp"
@@ -39,7 +39,8 @@
             <EditText
                 android:id="@+id/editTextHostID"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:text="https://192.168.1.65/dl_chain/transactions.php">
             </EditText>
             <TextView
                 android:layout_width="wrap_content"
@@ -52,7 +53,8 @@
             <EditText
                 android:id="@+id/editTextApiKeyID"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:text="">
             </EditText>
         </LinearLayout>
     </ScrollView>
