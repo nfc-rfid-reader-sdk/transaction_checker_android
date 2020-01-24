@@ -522,6 +522,30 @@ public class MainActivity extends AppCompatActivity {
                         "Tap DL Signer card on the phone...", true);
             }
         });
+
+        Button btnSharePubKey = findViewById(R.id.btnSharePubKeyId);
+        btnSharePubKey.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+                EditText PUBKEYET = findViewById(R.id.getPublicKeyETID);
+
+                String shareBody = PUBKEYET.getText().toString().trim();
+
+                if(shareBody.equals(""))
+                {
+                    Toast.makeText(getApplicationContext(), "Nothing to share", Toast.LENGTH_SHORT).show();
+                }
+                else
+                {
+                    Intent sharingIntent = new Intent(android.content.Intent.ACTION_SEND);
+                    sharingIntent.setType("text/plain");
+                    sharingIntent.putExtra(android.content.Intent.EXTRA_SUBJECT, "Public key");
+                    sharingIntent.putExtra(android.content.Intent.EXTRA_TEXT, shareBody);
+                    startActivity(Intent.createChooser(sharingIntent, "Share public key"));
+                }
+            }
+        });
     }
 
     public int GetCertificate()
@@ -608,7 +632,7 @@ public class MainActivity extends AppCompatActivity {
     public void getData()
     {
         stringRequest.setRetryPolicy(new DefaultRetryPolicy(
-                30000,
+                5000,
                 DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
                 DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
 
@@ -618,7 +642,7 @@ public class MainActivity extends AppCompatActivity {
     public void ChainBlock()
     {
         stringRequestPayment.setRetryPolicy(new DefaultRetryPolicy(
-                30000,
+                5000,
                 DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
                 DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
 
