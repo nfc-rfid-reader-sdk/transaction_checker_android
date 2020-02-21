@@ -40,7 +40,7 @@
                 android:id="@+id/editTextHostID"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="https://192.168.1.65/dl_chain/transactions.php">
+                android:hint="https://192.168.1.65/dl_chain/transactions.php">
             </EditText>
             <TextView
                 android:layout_width="wrap_content"
