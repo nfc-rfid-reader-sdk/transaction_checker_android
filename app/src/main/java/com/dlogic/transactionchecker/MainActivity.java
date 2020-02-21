@@ -748,7 +748,7 @@ public class MainActivity extends AppCompatActivity {
 
                 if(serverUrl.equals(""))
                 {
-                    Toast.makeText(getApplicationContext(), "Host is not defined", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "Transaction checker host is not defined", Toast.LENGTH_SHORT).show();
                 }
                 else
                 {
@@ -820,7 +820,14 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onErrorResponse(VolleyError error) {
 
-                Toast.makeText(getApplicationContext(), "Payment failed", Toast.LENGTH_SHORT).show();
+                if(serverUrlPayment.equals(""))
+                {
+                    Toast.makeText(getApplicationContext(), "Payment host is not defined", Toast.LENGTH_SHORT).show();
+                }
+                else
+                {
+                    Toast.makeText(getApplicationContext(), "Payment failed", Toast.LENGTH_SHORT).show();
+                }
 
                 try {
                     Log.e("SendingError", error.getMessage());
